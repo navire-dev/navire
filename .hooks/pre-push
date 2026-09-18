@@ -1,0 +1,48 @@
+#!/bin/sh
+
+if [ -z "${GOTMPDIR:-}" ]; then
+  project_name=$(basename "$PWD")
+  export GOTMPDIR="${XDG_CACHE_HOME:-$HOME}/go/${project_name}/tmp"
+fi
+mkdir -p "$GOTMPDIR"
+
+scope_input="$GOTMPDIR/navire-push-$$.files"
+trap 'rm -f "$scope_input"' EXIT HUP INT TERM
+: > "$scope_input"
+
+empty_tree=$(git hash-object -t tree /dev/null)
+zero_sha=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  [ "$local_sha" = "$zero_sha" ] && continue
+
+  if [ "$remote_sha" = "$zero_sha" ]; then
+    git diff --name-only "$empty_tree" "$local_sha" >> "$scope_input"
+  else
+    git diff --name-only "$remote_sha" "$local_sha" >> "$scope_input"
+  fi
+done
+
+scopes=$("$(dirname "$0")/scopes.sh" < "$scope_input")
+
+if ! printf '%s\n' "$scopes" | grep -qx go; then
+  echo "No pushed Go changes. Skipping Go tests."
+  exit 0
+fi
+
+targets=""
+if printf '%s\n' "$scopes" | grep -qx all; then
+  targets="./..."
+else
+  printf '%s\n' "$scopes" | grep -qx core && targets="$targets ./core/... ./cmd/core"
+  printf '%s\n' "$scopes" | grep -qx dspc && targets="$targets ./dispatcher/... ./cmd/dispatcher"
+  printf '%s\n' "$scopes" | grep -qx cli && targets="$targets ./navirectl/... ./cmd/navirectl"
+fi
+
+echo "Running tests for affected packages..."
+# shellcheck disable=SC2086
+if ! go test $targets; then
+  echo "Error: Tests failed. Push aborted."
+  exit 1
+fi

@@ -1,0 +1,33 @@
+---
+networks:
+  yournetwork:
+    external: true
+
+services:
+  navire-core:
+    image: git.nexacloud.dev/mrsnakedoc/navire-core:${NAVIRE_IMAGE_TAG:-latest} # Core image and selected tag.
+    container_name: navire-core
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NAVIRE_TARGETS_DIR: /config/targets # Internal directory for provider endpoint files.
+      NAVIRE_TEMPLATES_DIR: /config/templates # Internal directory for notification templates.
+    ports: # Optional direct host access to the Core API.
+      - "${NAVIRE_HOST_PORT:-8080}:8080" # Map the host port to Core's fixed internal port.
+    volumes:
+      - "${NAVIRE_TARGETS_HOST_DIR:?set NAVIRE_TARGETS_HOST_DIR in .env}:/config/targets:ro" # Provider endpoint files.
+      - "${NAVIRE_TEMPLATES_HOST_DIR:?set NAVIRE_TEMPLATES_HOST_DIR in .env}:/config/templates:ro" # Notification templates.
+
+    # Optional Traefik configuration. Uncomment and adapt the labels when Core is behind Traefik.
+    # labels:
+    #   - "traefik.enable=true" # Enable Traefik discovery for Core.
+    #   - "traefik.http.routers.navire-core.entrypoints=http,https" # Accept HTTP and HTTPS entrypoints.
+    #   - "traefik.http.routers.navire-core.rule=Host(`core.example.com`)" # Replace with the Core hostname.
+    #   - "traefik.http.services.navire-core.loadbalancer.server.port=8080" # Core's fixed internal port.
+    #   - "traefik.http.routers.navire-core.service=navire-core" # Route requests to the Core service.
+    #   - "traefik.http.routers.navire-core.tls=true" # Enable TLS on the HTTPS router.
+    #   - "traefik.http.routers.navire-core.tls.certresolver=prod" # Replace with the configured certificate resolver.
+    #   - "traefik.docker.network=yournetwork" # Tell Traefik which shared network to use.
+    networks:
+      - yournetwork # Must match the network used by Traefik and any directly connected services.

@@ -1,0 +1,10 @@
+root = "/workspace"
+tmp_dir = "/tmp/navire-core-air"
+
+[build]
+cmd = "go build -buildvcs=false -o ./bin/navire-core ./cmd/core"
+bin = "./bin/navire-core"
+include_ext = ["go"]
+exclude_dir = ["bin", "tmp", ".git", "coverage.html"]
+delay = 500
+stop_on_error = true

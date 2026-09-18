@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+.agents
+.codex
+dev
+core/.env
+dispatcher/.env
+**/.env.example
+bin
+data
+coverage.out
+coverage.html
+*.log

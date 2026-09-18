@@ -1,0 +1,29 @@
+# Build artifacts and binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+bin/
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Test and coverage output
+*.out
+coverage.html
+
+# Local development configuration
+dev/config
+dev/redis/config/valkey.conf
+.env
+.env.*
+!.env.example
+
+# Dependencies
+vendor/
+
+# Private notes and local tooling
+.internal/

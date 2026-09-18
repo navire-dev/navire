@@ -1,0 +1,53 @@
+---
+networks:
+  navire_net:
+    driver: bridge 
+
+services:
+  navire-redis:
+    image: valkey/valkey:latest
+    container_name: navire-redis
+    command:
+    - sh
+    - -c
+    - |
+      if [ -f /usr/local/etc/redis/valkey.conf ]; then
+        exec valkey-server /usr/local/etc/redis/valkey.conf
+      fi
+      exec valkey-server
+    restart: unless-stopped
+    environment:
+      - VALKEY_HOST=${VALKEY_HOST:-navire-redis}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - VALKEY_USER=${VALKEY_USER:-dev}
+      - VALKEY_PASSWORD=${VALKEY_PASSWORD:-}
+    volumes:
+      - ./config/valkey.conf:/usr/local/etc/redis/valkey.conf:ro
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --user \"$${VALKEY_USER:-default}\" --pass \"$${VALKEY_PASSWORD:-}\" PING | grep -q PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    networks:
+      - navire_net
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: unless-stopped
+    ports:
+      - 5540:5540
+    environment:
+      - RI_REDIS_HOST=${VALKEY_HOST:-navire-redis}
+      - RI_REDIS_PORT=${VALKEY_PORT:-6379}
+      - RI_REDIS_ALIAS=${VALKEY_HOST:-navire-redis}
+      - RI_REDIS_USERNAME=${VALKEY_USER:-default}
+      - RI_REDIS_PASSWORD=${VALKEY_PASSWORD:-}
+      - RI_REDIS_TLS=false
+    depends_on:
+      - navire-redis
+    networks:
+      - navire_net

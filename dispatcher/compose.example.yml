@@ -1,0 +1,14 @@
+---
+networks:
+  yournetwork: # Replace with the external network shared with Core and Redis.
+    external: true # The network must exist before Compose starts the container.
+
+services:
+  navire-dspc:
+    image: git.nexacloud.dev/mrsnakedoc/navire-dspc:${NAVIRE_IMAGE_TAG:-latest}
+    container_name: navire-dspc
+    restart: unless-stopped
+    env_file:
+      - .env # Keep this file local and out of version control.
+    networks: # Attach the DSPC to the selected external network.
+      - yournetwork # Must provide access to Core and Redis or Valkey.

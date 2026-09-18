@@ -1,0 +1,31 @@
+---
+networks:
+  navire_net:
+    external: true
+
+services:
+  navire-dspc-dev:
+    build:
+      context: ../..
+      dockerfile: dev/dspc/Dockerfile
+    container_name: navire-dspc-dev
+    restart: unless-stopped
+    user: 1000:1000
+    working_dir: /workspace
+    env_file:
+      - .env
+    environment:
+      NAVIRE_CORE_URL: http://navire-core-dev:8080
+      REDIS_ADDR: host.docker.internal
+      GOMODCACHE: /go/pkg/mod
+      GOCACHE: /go/build-cache
+      GOTMPDIR: /tmp/go-tmp
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ../..:/workspace
+      - ${DEV_CACHE_DIR:-/var/tmp/navire}/go-mod-cache:/go/pkg/mod
+      - ${DEV_CACHE_DIR:-/var/tmp/navire}/go-build-cache:/go/build-cache
+      - ${DEV_CACHE_DIR:-/var/tmp/navire}/dspc-go-tmp:/tmp/go-tmp
+    networks:
+      - navire_net

@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an improvement or new capability for Navire
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues before opening a new request.
+
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Existing issues
+      options:
+        - label: I have searched the existing issues and did not find a duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem would this feature solve? Who would benefit from it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or interface you would like to see.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature area
+      description: Which area of Navire does this feature relate to?
+      options:
+        - Configuration
+        - Core
+        - DSPC
+        - Provider integration
+        - Transport
+        - Administration API or CLI
+        - Installation and deployment
+        - Documentation
+        - Performance
+        - Security
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any alternative solutions or workarounds you have considered.

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+if [ -z "${GOTMPDIR:-}" ]; then
+  project_name=$(basename "$PWD")
+  export GOTMPDIR="${XDG_CACHE_HOME:-$HOME}/go/${project_name}/tmp"
+fi
+mkdir -p "$GOTMPDIR"
+
+scopes=$(git diff --cached --name-only --diff-filter=ACDMRT | "$(dirname "$0")/scopes.sh")
+
+if ! grep -qx go <<<"$scopes"; then
+  echo "No staged Go changes. Skipping Go checks."
+  exit 0
+fi
+
+targets=()
+if grep -qx all <<<"$scopes"; then
+  targets=(./...)
+else
+  grep -qx core <<<"$scopes" && targets+=(./core/... ./cmd/core)
+  grep -qx dspc <<<"$scopes" && targets+=(./dispatcher/... ./cmd/dispatcher)
+  grep -qx cli <<<"$scopes" && targets+=(./navirectl/... ./cmd/navirectl)
+fi
+
+echo "Checking if the affected code compiles..."
+if ! go build "${targets[@]}"; then
+  echo "Error: Code does not compile. Commit aborted."
+  exit 1
+fi
+
+echo "Running linters for affected packages..."
+if ! golangci-lint run --config .golangci.yml "${targets[@]}"; then
+  echo "Error: Linting issues detected."
+  exit 1
+fi
+
+if grep -qx deps <<<"$scopes"; then
+  echo "Running govulncheck..."
+  if ! govulncheck ./...; then
+    echo "Error: Vulnerabilities found. Commit aborted."
+    exit 1
+  fi
+else
+  echo "Dependencies unchanged. Skipping govulncheck."
+fi
