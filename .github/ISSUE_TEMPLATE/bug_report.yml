@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a reproducible problem in Navire
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues before opening a new report.
+
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Existing issues
+      options:
+        - label: I have searched the existing issues and did not find a duplicate.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Navire version
+      description: Which release, commit, or image tag are you using?
+      placeholder: "0.0.1, commit SHA, or image tag"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of Navire is affected?
+      options:
+        - Core
+        - DSPC
+        - Configuration
+        - Templates and routing
+        - Provider integration
+        - Transport
+        - Metrics
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Current behavior
+      description: What happened? Include the relevant error or unexpected result.
+      placeholder: "When I try to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect Navire to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable reproduction you can.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the operating system, deployment method, and relevant provider or transport versions.
+      placeholder: |
+        OS:
+        Deployment:
+        Transport:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove secrets, tokens, webhook URLs, and other sensitive values before posting logs.
+      render: shell
+
+  - type: checkboxes
+    id: sensitive-data
+    attributes:
+      label: Sensitive data
+      options:
+        - label: I have removed credentials, tokens, webhook URLs, and other sensitive data.
+          required: true
