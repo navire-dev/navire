@@ -10,37 +10,34 @@ That coupling makes notification infrastructure difficult to change. Replacing o
 
 ## The Navire model
 
-Producers submit an event using the Navire event contract. Core validates the event, resolves a template variant and its configured targets, and publishes one execution plan per target. Dispatchers consume those plans and deliver notifications independently of Core.
+Producers submit an event using the Navire event contract. Core validates the event, resolves a template variant and its configured targets, and publishes one execution plan per target. Core then consumes those plans through its internal dispatcher worker pool and delivers them independently.
 
 ```text
 producer
    |
    |  POST /api/v1/events
    v
-Core
+Core API
    |  validate, resolve, publish
    v
-pub/sub transport
+Redis or Valkey Streams
+   |  one stream per active provider
    v
-Dispatcher
-   |  render, format, send, report
+Core dispatcher workers
+   |  render, format, send, acknowledge
    v
 provider endpoint
 ```
+
+The dispatcher is a delivery unit inside Core, not a separate service. This keeps the current deployment simple while preserving a boundary that can be extracted later if the operational model requires it.
 
 ## Current components
 
 ### Core
 
-Core is the decision-making component. It accepts events, validates their shape and content, resolves templates and variants, applies routing rules, prepares provider targets, and publishes immutable execution plans.
+Core is the decision-making and delivery component. It accepts events, validates their shape and content, resolves templates and variants, applies routing rules, prepares provider targets, publishes immutable execution plans, consumes those plans, and delivers notifications.
 
-Core also aggregates Dispatcher reports and exposes the Prometheus-compatible metrics endpoint.
-
-### Dispatchers
-
-Dispatchers are independent delivery workers. A Dispatcher consumes target-specific execution plans, renders the already selected variant with event data, formats the provider request through a provider sink, sends it, and reports the result back to Core through the transport.
-
-Dispatchers do not select templates, reinterpret routing rules, or make business decisions about the event.
+Core also exposes health, readiness, and Prometheus-compatible metrics. Its dispatcher workers record delivery outcomes and acknowledge plans after processing.
 
 ### Templates
 
@@ -50,15 +47,37 @@ The event references a template by its key. It does not contain provider-specifi
 
 ### Providers and endpoints
 
-A provider identifies an external notification system such as Gotify, NTFY, Slack, or Discord. An endpoint is a configured receiver within that provider. Core resolves endpoint configuration and passes the resulting target to a Dispatcher.
+A provider identifies an external notification system such as Gotify, NTFY, Slack, or Discord. An endpoint is a configured receiver within that provider. Core resolves endpoint configuration and includes the selected target in the execution plan.
 
-The Dispatcher owns provider-specific request formatting. The provider itself is the external system receiving that request.
+Provider-specific formatting belongs to the dispatcher sink. The provider itself is the external system receiving the request.
+
+## Dispatcher delivery unit
+
+Each worker processes one execution plan at a time:
+
+```text
+execution plan
+    |
+    v
+renderer          maps event data into the selected title and body
+    |
+    v
+provider sink     builds the provider-specific request
+    |
+    v
+sender            performs HTTP delivery and retries
+    |
+    v
+ACK by Core       acknowledges the transport message
+```
+
+The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`, which defaults to 20 and accepts values from 1 to 100. A failed delivery does not prevent other workers from processing other plans. Provider-specific adaptive rate limiting and recovery workflows are future work.
 
 ## Transport
 
-Redis or Valkey Streams is the transport used by the current implementation. The event, execution-plan, heartbeat, lifecycle, and reporting contracts are independent of that choice.
+Redis or Valkey Streams is the transport used by the current implementation. Execution plans are partitioned by provider using streams such as `navire:plans:gotify` and `navire:plans:discord`. The event, execution-plan, lifecycle, reporting, and message-identity contracts are independent of that choice.
 
-Future transport adapters may support other pub/sub backends without changing the contracts between producers, Core, and Dispatchers.
+Future transport adapters may support other pub/sub backends without changing those contracts.
 
 ## Configuration model
 
@@ -66,12 +85,10 @@ The current runtime loads templates and provider endpoint configuration from fil
 
 See the [declarative configuration reference](configuration.md) for the template and provider file formats.
 
-An authenticated administration API and a persistent control plane are planned for the MVP target. They are not part of the current file-based runtime described by this document.
+An authenticated administration API and a persistent control plane are planned for the MVP target. They are not part of the current file-based runtime.
 
-The current file-based runtime configuration is an interim implementation. Over time, it will be replaced by a repository-based configuration workflow managed through navirectl, with the CLI becoming the primary interface for validating and applying configuration to Navire.
+The file-based runtime configuration is an interim implementation. Over time, it will be replaced by a repository-based configuration workflow managed through `navirectl`.
 
 ## Operational model
 
-Core and Dispatchers are separate processes. Multiple Dispatchers can consume plans from the same transport and report their state independently. Core exposes health, readiness, metrics, and Dispatcher lifecycle information for operational monitoring.
-
-The current system is designed around one Core instance. Active-active Core behavior and high availability are future work, not current guarantees.
+The current system is designed around one Core instance. Core exposes health, readiness, metrics, and delivery state for operational monitoring. Active-active Core behavior and high availability are future work, not current guarantees.

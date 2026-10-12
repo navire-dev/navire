@@ -11,7 +11,7 @@ The current runtime supports:
 
 ## Delivery responsibility
 
-Provider-specific formatting is not performed by Core and is not performed by the external provider abstraction itself. The Dispatcher owns that delivery path:
+Provider-specific formatting is not part of event ingestion or routing. Core's internal dispatcher owns the delivery path:
 
 ```text
 execution plan
@@ -20,7 +20,7 @@ execution plan
 renderer
     |
     v
-provider sink       formats the provider request
+provider sink       formats the provider request inside Core
     |
     v
 sender              performs the request and retry lifecycle
@@ -29,9 +29,9 @@ sender              performs the request and retry lifecycle
 external endpoint
 ```
 
-Core prepares the target information required by the Dispatcher. It resolves the provider and endpoint configuration, prepares the complete delivery URL, and includes the selected delivery policy in the execution plan.
+Core prepares the target information required by its dispatcher. It resolves the provider and endpoint configuration, prepares the complete delivery URL, and includes the selected delivery policy in the execution plan.
 
-The Dispatcher does not choose a provider or endpoint. Those decisions have already been made by Core before the execution plan is published.
+The dispatcher does not choose a provider or endpoint. Those decisions have already been made by Core before the execution plan is published.
 
 ## Endpoint configuration
 
@@ -58,7 +58,7 @@ Provider credentials must be supplied through environment expansion or another d
 
 ## Provider sinks
 
-Each supported provider has a sink implementation in the Dispatcher. A sink receives the canonical execution-plan content and produces the request representation expected by its provider.
+Each supported provider has a sink implementation in Core's dispatcher package. A sink receives the canonical execution-plan content and produces the request representation expected by its provider.
 
 Sinks may handle provider-specific concerns such as:
 
@@ -72,7 +72,7 @@ Sinks must not decide routing, select variants, or implement a second event mode
 
 ## Sender
 
-The sender owns the common delivery lifecycle after a sink has prepared a request. It performs the request, applies the execution policy, records duration and outcome, and returns a normalized result to the Dispatcher runtime.
+The sender owns the common delivery lifecycle after a sink has prepared a request. It performs the request, applies the execution policy, records duration and outcome, and returns a normalized result to the Core dispatcher runtime.
 
 Keeping the sender separate from sinks prevents each provider implementation from inventing its own retry and error-handling behavior.
 
@@ -82,7 +82,7 @@ Adding a provider requires:
 
 1. a provider identifier in the shared provider catalog
 2. Core-side endpoint preparation when the provider needs it
-3. a Dispatcher sink that formats the provider request
+3. a Core dispatcher sink that formats the provider request
 4. configuration and focused tests
 
 The event contract, template model, routing model, and execution-plan contract should not change when a provider is added.

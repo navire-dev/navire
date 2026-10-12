@@ -31,19 +31,14 @@ NAVIRE_EVENTS_RATE_LIMIT_REFILL_PER_MIN
 
 When enabled, Core applies a token bucket per resolved client IP to event ingestion only. The burst controls how many events can be accepted immediately, while the refill value controls the sustained rate. These values must account for legitimate producer bursts and should not be treated as a delivery scheduling mechanism.
 
-## Dispatcher registration
-
-Dispatchers register with Core through `POST /api/register-dispatcher`. Registration is protected by the shared Dispatcher registration secret. The secret must be treated as deployment credentials and must not be committed to configuration files or logs.
-
 ## Transport and encryption keys
 
-The runtime uses Redis or Valkey Streams for execution plans, lifecycle events, heartbeats, and delivery reports. Transport access must be protected by the Redis or Valkey deployment configuration and network policy.
+The runtime uses Redis or Valkey Streams for execution plans, lifecycle events, and delivery state. Transport access must be protected by the Redis or Valkey deployment configuration and network policy. The dispatcher is part of Core and does not authenticate as a separate process.
 
 Core uses separate keys for protected runtime data:
 
 - `NAVIRE_SECRETS_ENCRYPTION_KEY` protects configured provider secrets
 - `NAVIRE_EXECUTION_PLAN_KEY` protects endpoint URLs carried in execution plans
-- `NAVIRE_DSPC_REGISTRATION_SECRET` authenticates Dispatcher registration
 
 These values must be generated independently, stored outside the repository, and rotated according to the deployment's operational policy.
 

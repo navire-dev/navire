@@ -53,7 +53,7 @@ An event that cannot be validated, resolved, routed, or published is rejected wi
 
 An execution plan is a target-specific snapshot. It contains the selected variant, its title and body, the event data, the resolved provider target, and the delivery policy.
 
-The Dispatcher does not load the original template to rebuild the plan. This keeps Core responsible for event interpretation and makes the plan the boundary between decision-making and delivery.
+The dispatcher does not load the original template or rebuild the plan. This keeps Core responsible for event interpretation and makes the plan the boundary between decision-making and delivery.
 
 For example, an execution plan for the `operations` Gotify endpoint may look like this:
 
@@ -97,17 +97,20 @@ For example, an execution plan for the `operations` Gotify endpoint may look lik
 
 The encrypted target URL is an internal runtime value. It is shown here only to illustrate the execution-plan boundary and must never be replaced with a real credential in documentation, logs, or tests.
 
-## Dispatcher processing
+## Core dispatcher processing
 
-A Dispatcher consumes one execution plan and:
+The Core dispatcher consumes one execution plan and:
 
 1. renders the selected title and body with the plan data
 2. passes the rendered content to the provider sink
 3. sends the formatted request through the common sender
-4. applies the target delivery policy
-5. publishes a normalized delivery report
+4. applies the target delivery policy and retry policy
+5. returns the delivery result to the Core worker
+6. acknowledges the Redis or Valkey Stream entry after processing
 
-The report allows Core to update delivery metrics and operational Dispatcher state.
+Each worker processes one plan at a time. The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`; a failed or slow provider plan does not stop other workers from processing other plans. Provider-specific rate limiting and recovery workflows are not implemented yet.
+
+The current transport uses one consumer group, `navire-dispatchers`, across provider-partitioned streams such as `navire:plans:discord` and `navire:plans:slack`.
 
 ## Configuration
 
@@ -122,6 +125,4 @@ The current Core server also exposes:
 - `GET /healthz` for liveness
 - `GET /readyz` for readiness
 - `GET /metrics` for Prometheus-compatible metrics
-- `POST /api/register-dispatcher` for Dispatcher registration
-
-Human authentication, the Administration API, and persistent resource management are future milestones of the MVP and are not part of this current ingestion workflow.
+- Human authentication, the Administration API, and persistent resource management are future milestones of the MVP and are not part of this current ingestion workflow.

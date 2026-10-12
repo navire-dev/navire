@@ -4,7 +4,7 @@ This roadmap describes the intended product evolution. It is informational, not 
 
 ## 0.0.1: Secure single-user MVP
 
-The first release establishes a usable and secure vertical slice around the existing Core, transport, Dispatcher, provider, and observability model.
+The first release establishes a usable and secure vertical slice around the existing Core, transport, internal dispatcher, provider, and observability model.
 
 The target includes:
 
