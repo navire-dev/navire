@@ -1,4 +1,4 @@
-.PHONY: start stop logs prepare-dev-cache docker-build format test lint vuln cov up down clean start-redis stop-redis dev release fake-start fake-stop fake-logs build-cli
+.PHONY: start stop logs prepare-dev-cache docker-build-core docker-tag-core docker-push-core format test lint vuln cov up down clean start-redis stop-redis dev release fake-start fake-stop fake-logs build-cli
 
 -include Makefile.local
 
@@ -68,6 +68,22 @@ docker-build-core:
 		--build-arg BUILD_DATE=$(DOCKER_BUILD_DATE) \
 		-f core/Dockerfile \
 		-t $(DOCKER_CORE_IMAGE):$(DOCKER_TAG) .
+
+docker-tag-core:
+	@docker tag \
+		$(DOCKER_CORE_IMAGE):$(DOCKER_TAG) \
+		$(DOCKER_REGISTRY)/$(DOCKER_NAMESPACE)/$(DOCKER_CORE_IMAGE):$(DOCKER_TAG)
+
+docker-push-core: docker-tag-core
+		@if [ "$(DOCKER_TAG)" != "latest" ]; then \
+			docker tag \
+				$(DOCKER_REGISTRY)/$(DOCKER_NAMESPACE)/$(DOCKER_CORE_IMAGE):$(DOCKER_TAG) \
+				$(DOCKER_REGISTRY)/$(DOCKER_NAMESPACE)/$(DOCKER_CORE_IMAGE):latest; \
+		fi
+		@docker push $(DOCKER_REGISTRY)/$(DOCKER_NAMESPACE)/$(DOCKER_CORE_IMAGE):$(DOCKER_TAG)
+		@if [ "$(DOCKER_TAG)" != "latest" ]; then \
+			docker push $(DOCKER_REGISTRY)/$(DOCKER_NAMESPACE)/$(DOCKER_CORE_IMAGE):latest; \
+		fi
 
 check: test vuln format lint
 
