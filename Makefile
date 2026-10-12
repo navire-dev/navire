@@ -1,5 +1,7 @@
 .PHONY: start startc stop stopc logsc startd stopd logsd prepare-dev-cache docker-build-core docker-build-dispatcher docker-build-dspc docker-build format test lint vuln cov up down clean start-redis stop-redis dev release fake-start fake-stop fake-logs build-cli
 
+-include Makefile.local
+
 CORE_DEV_COMPOSE ?= dev/core/compose.yml
 DSPC_DEV_COMPOSE ?= dev/dspc/compose.yml
 
