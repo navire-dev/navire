@@ -10,9 +10,8 @@ func setRequiredDirectories(t *testing.T) {
 	t.Helper()
 	t.Setenv("NAVIRE_TARGETS_DIR", "../config/targets")
 	t.Setenv("NAVIRE_TEMPLATES_DIR", "../config/templates")
-	t.Setenv("NAVIRE_DISPATCH_PLAN_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	t.Setenv("NAVIRE_EXECUTION_PLAN_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	t.Setenv("NAVIRE_SECRETS_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("NAVIRE_DSPC_REGISTRATION_SECRET", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	t.Setenv("REDIS_ADDR", "localhost")
 	t.Setenv("REDIS_PORT", "6379")
 	t.Setenv("REDIS_USER", "dev")
@@ -34,11 +33,26 @@ func TestLoadUsesDefaultsAndWildcardAllowlist(t *testing.T) {
 	if cfg.PlanRetention != 30*24*time.Hour || cfg.PlanCleanupInterval != time.Hour {
 		t.Fatalf("plan cleanup defaults = %s, %s", cfg.PlanRetention, cfg.PlanCleanupInterval)
 	}
-	if cfg.ReportingRetention != 24*time.Hour || cfg.ReportingCleanupInterval != time.Hour {
-		t.Fatalf("reporting cleanup defaults = %s, %s", cfg.ReportingRetention, cfg.ReportingCleanupInterval)
+	if cfg.DispatcherWorkers != defaultDispatcherWorkers {
+		t.Fatalf("DispatcherWorkers = %d, want %d", cfg.DispatcherWorkers, defaultDispatcherWorkers)
 	}
 	if cfg.EventsRateLimit != nil {
 		t.Fatal("EventsRateLimit is enabled without rate-limit variables")
+	}
+}
+
+func TestLoadRejectsInvalidDispatcherWorkers(t *testing.T) {
+	for _, workers := range []string{"0", "101"} {
+		t.Run(workers, func(t *testing.T) {
+			setRequiredDirectories(t)
+			t.Setenv("NAVIRE_EVENTS_ALLOWED_PROXIES", "127.0.0.1")
+			t.Setenv("NAVIRE_DISPATCHER_WORKERS", workers)
+
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), "dispatcher workers must be between 1 and 100") {
+				t.Fatalf("Load() error = %v, want dispatcher worker bounds error", err)
+			}
+		})
 	}
 }
 
@@ -94,9 +108,8 @@ func TestLoadRejectsInvalidCIDR(t *testing.T) {
 }
 
 func TestLoadUsesDefaultDirectories(t *testing.T) {
-	t.Setenv("NAVIRE_DISPATCH_PLAN_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	t.Setenv("NAVIRE_EXECUTION_PLAN_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	t.Setenv("NAVIRE_SECRETS_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("NAVIRE_DSPC_REGISTRATION_SECRET", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	t.Setenv("REDIS_ADDR", "localhost")
 	t.Setenv("REDIS_PORT", "6379")
 	t.Setenv("REDIS_USER", "dev")

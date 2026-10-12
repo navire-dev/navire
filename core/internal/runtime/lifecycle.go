@@ -53,10 +53,8 @@ func (a *App) RunContext(ctx context.Context) error {
 	workerErrCh := make(chan error, 1)
 	startWorker(&workers, workerErrCh, workerCtx, "config worker", a.watchConfig)
 	startWorker(&workers, workerErrCh, workerCtx, "template worker", a.watchTemplates)
-	startWorker(&workers, workerErrCh, workerCtx, "reporting worker", a.consumeReporting)
-	startWorker(&workers, workerErrCh, workerCtx, "heartbeat worker", a.consumeHeartbeats)
+	startWorker(&workers, workerErrCh, workerCtx, "plan consumer", a.consumePlans)
 	startWorker(&workers, workerErrCh, workerCtx, "plan cleanup worker", a.cleanPlans)
-	startWorker(&workers, workerErrCh, workerCtx, "reporting cleanup worker", a.cleanReporting)
 	startWorker(&workers, workerErrCh, workerCtx, "lifecycle cleanup worker", a.cleanLifecycle)
 
 	serverErrCh := make(chan error, 1)

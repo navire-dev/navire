@@ -2,9 +2,7 @@ package metrics
 
 import (
 	"context"
-
-	"github.com/navire-dev/navire/shared/heartbeat"
-	"github.com/navire-dev/navire/shared/reporting"
+	"time"
 )
 
 // Recorder is the Core-owned metrics contract. Provider-specific exporters
@@ -19,8 +17,10 @@ type Recorder interface {
 	EventPublished()
 	EventPublishError()
 	StreamPublished(count int)
-	ObserveReporting(reporting.Event)
-	ObserveHeartbeat(heartbeat.Event)
+	StreamConsumed(provider string)
+	StreamAcked(provider string)
+	DeliveryAttempt(provider, state string)
+	DeliveryDuration(provider string, duration time.Duration)
 }
 
 // Exporter renders the Core-owned metrics for one external monitoring system.

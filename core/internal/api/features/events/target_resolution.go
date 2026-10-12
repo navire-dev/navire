@@ -39,7 +39,7 @@ func (s *Service) resolveTarget(ctx context.Context, definition *messageTemplate
 	if err != nil {
 		return models.ExecutionTarget{}, false, "target_url", fmt.Errorf("prepare target %s: %w", fullName, err)
 	}
-	encryptedURL, err := sharedcrypto.Encrypt(resolvedURL, s.d.DispatchPlanKey)
+	encryptedURL, err := sharedcrypto.Encrypt(resolvedURL, s.d.ExecutionPlanKey)
 	if err != nil {
 		return models.ExecutionTarget{}, false, "target_encryption", fmt.Errorf("encrypt target %s: %w", fullName, err)
 	}

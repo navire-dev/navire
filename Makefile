@@ -1,9 +1,8 @@
-.PHONY: start startc stop stopc logsc startd stopd logsd prepare-dev-cache docker-build-core docker-build-dispatcher docker-build-dspc docker-build format test lint vuln cov up down clean start-redis stop-redis dev release fake-start fake-stop fake-logs build-cli
+.PHONY: start stop logs prepare-dev-cache docker-build format test lint vuln cov up down clean start-redis stop-redis dev release fake-start fake-stop fake-logs build-cli
 
 -include Makefile.local
 
 CORE_DEV_COMPOSE ?= dev/core/compose.yml
-DSPC_DEV_COMPOSE ?= dev/dspc/compose.yml
 
 # Keep Docker and Go temporary build files on disk instead of the small /tmp tmpfs.
 TMPDIR ?= /var/tmp
@@ -17,17 +16,6 @@ prepare-dev-cache:
 		$(DEV_CACHE_DIR)/go-mod-cache \
 		$(DEV_CACHE_DIR)/go-build-cache \
 		$(DEV_CACHE_DIR)/core-go-tmp \
-		$(DEV_CACHE_DIR)/dspc-go-tmp
-
-start: prepare-dev-cache
-	@docker compose -f $(CORE_DEV_COMPOSE) up --build -d
-	@docker compose -f $(DSPC_DEV_COMPOSE) up --build -d
-
-stop:
-	@docker compose -f $(DSPC_DEV_COMPOSE) down
-	@docker compose -f $(CORE_DEV_COMPOSE) down
-
-
 
 LDFLAGS := -X 'github.com/navire-dev/navire/shared/version.Version=$(VERSION)' \
 		   -X 'github.com/navire-dev/navire/shared/version.Commit=$(GIT_COMMIT)' \
@@ -59,29 +47,17 @@ stop-redis:
 	@cd dev/redis && docker compose down 2>/dev/null || true
 	@echo "✅ Redis stopped"
 
-startc: prepare-dev-cache
-	@docker compose -f $(CORE_DEV_COMPOSE) up --build
+start: prepare-dev-cache
+	@docker compose -f $(CORE_DEV_COMPOSE) up --build -d
 
-stopc:
+stop:
 	@docker compose -f $(CORE_DEV_COMPOSE) down
 
-logsc:
+logs:
 	@docker compose -f $(CORE_DEV_COMPOSE) logs -f --tail=100
-
-startd: prepare-dev-cache
-	@docker compose -f $(DSPC_DEV_COMPOSE) up --build
-
-stopd:
-	@docker compose -f $(DSPC_DEV_COMPOSE) down
-
-logsd:
-	@docker compose -f $(DSPC_DEV_COMPOSE) logs -f --tail=100
-
-
 
 DOCKER_TAG ?= dev
 DOCKER_CORE_IMAGE ?= navire-core
-DOCKER_DSPC_IMAGE ?= navire-dspc
 DOCKER_BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 DOCKER_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
@@ -92,18 +68,6 @@ docker-build-core:
 		--build-arg BUILD_DATE=$(DOCKER_BUILD_DATE) \
 		-f core/Dockerfile \
 		-t $(DOCKER_CORE_IMAGE):$(DOCKER_TAG) .
-
-docker-build-dispatcher:
-	@docker build \
-		--build-arg NAVIRE_VERSION=$(or $(VERSION),$(DOCKER_TAG)) \
-		--build-arg GIT_COMMIT=$(DOCKER_COMMIT) \
-		--build-arg BUILD_DATE=$(DOCKER_BUILD_DATE) \
-		-f dispatcher/Dockerfile \
-		-t $(DOCKER_DSPC_IMAGE):$(DOCKER_TAG) .
-
-docker-build-dspc: docker-build-dispatcher
-
-docker-build: docker-build-core docker-build-dispatcher
 
 check: test vuln format lint
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/navire-dev/navire/shared/heartbeat"
 	"github.com/navire-dev/navire/shared/logger"
-	"github.com/navire-dev/navire/shared/reporting"
+	"github.com/navire-dev/navire/shared/models"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
 	"github.com/navire-dev/navire/shared/transport/redisstreams"
 )
@@ -42,38 +42,34 @@ func (a *App) watchTemplates(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) consumeReporting(ctx context.Context) error {
-	handler := func(ctx context.Context, event reporting.Event) error {
-		if err := event.Validate(); err != nil {
-			return err
-		}
-		if !a.registration.AuthenticateDispatcher(ctx, event.DispatcherID, event.RegistrationToken) {
-			a.logger.Warn("ignored reporting from unregistered dispatcher",
-				logger.String("dispatcher", event.DispatcherID))
+func (a *App) consumePlans(ctx context.Context) error {
+	handler := func(ctx context.Context, plan models.ExecutionPlan) error {
+		started := time.Now()
+		a.logger.Info("dispatching execution plan",
+			logger.String("message_id", plan.MessageID),
+			logger.String("transport_message_id", plan.TransportMessageID),
+			logger.String("target", plan.Target.Name),
+			logger.String("provider", string(plan.Target.Provider)))
+		if err := a.dispatcher.Dispatch(ctx, plan); err != nil {
+			a.metrics.DeliveryAttempt(string(plan.Target.Provider), "failure")
+			a.metrics.DeliveryDuration(string(plan.Target.Provider), time.Since(started))
+			a.logger.Error("delivery failed",
+				logger.String("message_id", plan.MessageID),
+				logger.String("target", plan.Target.Name),
+				logger.String("provider", string(plan.Target.Provider)),
+				logger.Error(err))
 			return nil
 		}
-		a.metrics.ObserveReporting(event)
+		a.metrics.DeliveryAttempt(string(plan.Target.Provider), "success")
+		a.metrics.DeliveryDuration(string(plan.Target.Provider), time.Since(started))
+		a.logger.Info("execution plan delivered",
+			logger.String("message_id", plan.MessageID),
+			logger.String("target", plan.Target.Name),
+			logger.String("provider", string(plan.Target.Provider)),
+			logger.Duration("duration", time.Since(started)))
 		return nil
 	}
-	if err := unexpectedWorkerError("reporting consumer", a.reportingConsumer.Run(ctx, handler)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (a *App) consumeHeartbeats(ctx context.Context) error {
-	handler := func(ctx context.Context, event heartbeat.Event) error {
-		accepted := a.registration.AuthenticateDispatcher(ctx, event.DispatcherID, event.RegistrationToken)
-		a.publishHeartbeatAck(ctx, event, accepted)
-		if !accepted {
-			a.logger.Debug("ignored heartbeat from unregistered dispatcher",
-				logger.String("dispatcher", event.DispatcherID))
-			return nil
-		}
-		a.metrics.ObserveHeartbeat(event)
-		return nil
-	}
-	if err := unexpectedWorkerError("heartbeat consumer", a.heartbeatConsumer.Run(ctx, handler)); err != nil {
+	if err := unexpectedWorkerError("plan consumer", a.planConsumer.Run(ctx, handler)); err != nil {
 		return err
 	}
 	return nil
@@ -83,14 +79,43 @@ func (a *App) cleanPlans(ctx context.Context) error {
 	a.logger.Info("starting notification plan cleanup",
 		logger.Duration("retention", a.cfg.PlanRetention),
 		logger.Duration("interval", a.cfg.PlanCleanupInterval))
-	return a.runStreamCleanup(ctx, "notification plans", a.planCleaner)
+	return a.runStreamCleanups(ctx, "notification plans", a.planCleaners)
 }
 
-func (a *App) cleanReporting(ctx context.Context) error {
-	a.logger.Info("starting reporting cleanup",
-		logger.Duration("retention", a.cfg.ReportingRetention),
-		logger.Duration("interval", a.cfg.ReportingCleanupInterval))
-	return a.runStreamCleanup(ctx, "reporting events", a.reportingCleaner)
+func (a *App) runStreamCleanups(ctx context.Context, name string, cleaners []*redisstreams.StreamCleaner) error {
+	if len(cleaners) == 0 {
+		return fmt.Errorf("%s cleanup has no streams", name)
+	}
+	cleanupCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	errs := make(chan error, len(cleaners))
+	var workers sync.WaitGroup
+	workers.Add(len(cleaners))
+	for _, cleaner := range cleaners {
+		go func(cleaner *redisstreams.StreamCleaner) {
+			defer workers.Done()
+			if err := a.runStreamCleanup(cleanupCtx, name, cleaner); err != nil {
+				errs <- err
+			}
+		}(cleaner)
+	}
+	done := make(chan struct{})
+	go func() {
+		workers.Wait()
+		close(done)
+	}()
+	select {
+	case err := <-errs:
+		cancel()
+		<-done
+		return err
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		cancel()
+		<-done
+		return ctx.Err()
+	}
 }
 
 func (a *App) cleanLifecycle(ctx context.Context) error {
@@ -119,23 +144,4 @@ func (a *App) runStreamCleanup(ctx context.Context, name string, base *redisstre
 		return fmt.Errorf("%s cleanup stopped: %w", name, err)
 	}
 	return nil
-}
-
-func (a *App) publishHeartbeatAck(ctx context.Context, event heartbeat.Event, accepted bool) {
-	ack := heartbeat.Ack{
-		ID:           fmt.Sprintf("%s:heartbeat-ack:%d", a.coreID, time.Now().UnixNano()),
-		HeartbeatID:  event.ID,
-		DispatcherID: event.DispatcherID,
-		CoreID:       a.coreID,
-		OccurredAt:   time.Now().UTC(),
-		Accepted:     accepted,
-	}
-	if !accepted {
-		ack.Reason = "dispatcher registration is not valid"
-	}
-	if err := a.heartbeatAckPublisher.Publish(ctx, ack); err != nil {
-		a.logger.Warn("publish heartbeat acknowledgement",
-			logger.Error(err),
-			logger.String("dispatcher", event.DispatcherID))
-	}
 }

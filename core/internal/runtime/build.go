@@ -16,8 +16,7 @@ import (
 
 type runtimeKeys struct {
 	secretsEncryptionKey []byte
-	dispatchPlanKey      []byte
-	registrationSecret   []byte
+	executionPlanKey     []byte
 }
 
 func loadKeys(cfg *config.Config) (runtimeKeys, error) {
@@ -25,18 +24,13 @@ func loadKeys(cfg *config.Config) (runtimeKeys, error) {
 	if err != nil {
 		return runtimeKeys{}, err
 	}
-	dispatchPlanKey, err := parseDispatchPlanKey(cfg)
-	if err != nil {
-		return runtimeKeys{}, err
-	}
-	registrationSecret, err := parseRegistrationSecret(cfg)
+	executionPlanKey, err := parseExecutionPlanKey(cfg)
 	if err != nil {
 		return runtimeKeys{}, err
 	}
 	return runtimeKeys{
 		secretsEncryptionKey: secretsEncryptionKey,
-		dispatchPlanKey:      dispatchPlanKey,
-		registrationSecret:   registrationSecret,
+		executionPlanKey:     executionPlanKey,
 	}, nil
 }
 
@@ -48,12 +42,8 @@ func validateSecretsKey(cfg *config.Config) ([]byte, error) {
 	return key, nil
 }
 
-func parseDispatchPlanKey(cfg *config.Config) ([]byte, error) {
-	return sharedcrypto.ParseKey(cfg.DispatchPlanKey, "NAVIRE_DISPATCH_PLAN_KEY")
-}
-
-func parseRegistrationSecret(cfg *config.Config) ([]byte, error) {
-	return sharedcrypto.ParseSecretKey(cfg.RegistrationSecret, "NAVIRE_DSPC_REGISTRATION_SECRET")
+func parseExecutionPlanKey(cfg *config.Config) ([]byte, error) {
+	return sharedcrypto.ParseKey(cfg.ExecutionPlanKey, "NAVIRE_EXECUTION_PLAN_KEY")
 }
 
 func connectRedis(cfg *config.Config, log logger.Logger) (*redis.Client, error) {

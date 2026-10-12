@@ -5,7 +5,6 @@
 .codex
 dev
 core/.env
-dispatcher/.env
 **/.env.example
 bin
 data

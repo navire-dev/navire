@@ -11,34 +11,35 @@ import (
 	"github.com/navire-dev/navire/core/internal/api"
 	"github.com/navire-dev/navire/core/internal/api/deps"
 	"github.com/navire-dev/navire/core/internal/config"
-	"github.com/navire-dev/navire/core/internal/dispatchers/registration"
+	coredispatcher "github.com/navire-dev/navire/core/internal/dispatcher"
+	"github.com/navire-dev/navire/core/internal/dispatcher/sinks"
 	"github.com/navire-dev/navire/core/internal/ingest"
 	coremetrics "github.com/navire-dev/navire/core/internal/metrics"
 	prommetrics "github.com/navire-dev/navire/core/internal/metrics/prometheus"
 	"github.com/navire-dev/navire/core/internal/provider"
 	"github.com/navire-dev/navire/shared/logger"
+	"github.com/navire-dev/navire/shared/models"
+	sharedproviders "github.com/navire-dev/navire/shared/providers"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
 	"github.com/navire-dev/navire/shared/transport/redisstreams"
 	"github.com/navire-dev/navire/shared/version"
+	"github.com/redis/go-redis/v9"
 )
 
 // App holds Core dependencies and lifecycle state.
 type App struct {
-	cfg                   *config.Config
-	logger                logger.Logger
-	server                *api.Server
-	ingester              *ingest.Ingester
-	reportingConsumer     *redisstreams.ReportingConsumer
-	heartbeatConsumer     *redisstreams.HeartbeatConsumer
-	planCleaner           *redisstreams.StreamCleaner
-	reportingCleaner      *redisstreams.StreamCleaner
-	lifecycleCleaner      *redisstreams.StreamCleaner
-	heartbeatAckPublisher redisstreams.HeartbeatAckPublisher
-	lifecyclePublisher    redisstreams.LifecyclePublisher
-	registration          *registration.Service
-	metrics               coremetrics.Recorder
-	templateCatalog       *templateCatalog.Catalog
-	coreID                string
+	cfg                *config.Config
+	logger             logger.Logger
+	server             *api.Server
+	ingester           *ingest.Ingester
+	planCleaners       []*redisstreams.StreamCleaner
+	lifecycleCleaner   *redisstreams.StreamCleaner
+	lifecyclePublisher redisstreams.LifecyclePublisher
+	dispatcher         *coredispatcher.Service
+	planConsumer       *redisstreams.PlanConsumer
+	metrics            coremetrics.Recorder
+	templateCatalog    *templateCatalog.Catalog
+	coreID             string
 }
 
 // New builds a runtime Core from the loaded configuration.
@@ -64,12 +65,6 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	registrationService := registration.Service{Redis: redis, Secret: keys.registrationSecret}
-	if err := registrationService.EnsureSecretHash(context.Background()); err != nil {
-		_ = redis.Close()
-		return nil, fmt.Errorf("prepare dispatcher registration: %w", err)
-	}
-
 	ingester, err := loadIngester(cfg, redis, keys.secretsEncryptionKey, log)
 	if err != nil {
 		_ = redis.Close()
@@ -86,6 +81,17 @@ func New(cfg *config.Config) (*App, error) {
 		_ = redis.Close()
 		return nil, fmt.Errorf("register Core providers: %w", err)
 	}
+	sinkRegistry, err := sinks.NewDefault()
+	if err != nil {
+		_ = redis.Close()
+		return nil, fmt.Errorf("register dispatcher providers: %w", err)
+	}
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	dispatcherService, err := coredispatcher.New(httpClient, keys.executionPlanKey, sinkRegistry, log)
+	if err != nil {
+		_ = redis.Close()
+		return nil, fmt.Errorf("build dispatcher: %w", err)
+	}
 	processMetrics := prommetrics.New(started)
 	processMetrics.SetRedisConnected(true)
 	server := api.New(cfg, log, deps.Deps{
@@ -101,35 +107,67 @@ func New(cfg *config.Config) (*App, error) {
 		TrustProxy:           cfg.TrustProxy,
 		Redis:                redis,
 		SecretsEncryptionKey: keys.secretsEncryptionKey,
-		DispatchPlanKey:      keys.dispatchPlanKey,
-		RegistrationSecret:   keys.registrationSecret,
+		ExecutionPlanKey:     keys.executionPlanKey,
 		Publisher:            &redisstreams.Publisher{Client: redis},
 		EndpointStore:        ingest.RedisEndpointStore{Client: redis},
 		TemplatesDir:         cfg.TemplatesDir,
 		TemplateCatalog:      catalog,
-		HTTPClient:           &http.Client{Timeout: 10 * time.Second},
+		HTTPClient:           httpClient,
 		ProviderRegistry:     providerRegistry,
 		Metrics:              processMetrics,
 		MetricsExporter:      processMetrics,
 	})
 
 	return &App{
-		cfg:                   cfg,
-		logger:                log,
-		server:                server,
-		ingester:              ingester,
-		reportingConsumer:     &redisstreams.ReportingConsumer{Client: redis, Consumer: "core-metrics"},
-		heartbeatConsumer:     &redisstreams.HeartbeatConsumer{Client: redis, Consumer: "core-heartbeats"},
-		planCleaner:           &redisstreams.StreamCleaner{Client: redis, Stream: redisstreams.NotificationStream, Retention: cfg.PlanRetention, Interval: cfg.PlanCleanupInterval},
-		reportingCleaner:      &redisstreams.StreamCleaner{Client: redis, Stream: redisstreams.ReportingStream, Retention: cfg.ReportingRetention, Interval: cfg.ReportingCleanupInterval},
-		lifecycleCleaner:      &redisstreams.StreamCleaner{Client: redis, Stream: redisstreams.LifecycleStream, Retention: redisstreams.LifecycleRetention, Interval: redisstreams.LifecycleCleanupInterval},
-		heartbeatAckPublisher: redisstreams.HeartbeatAckPublisher{Client: redis},
-		lifecyclePublisher:    redisstreams.LifecyclePublisher{Client: redis},
-		registration:          &registrationService,
-		metrics:               processMetrics,
-		templateCatalog:       catalog,
-		coreID:                coreID,
+		cfg:                cfg,
+		logger:             log,
+		server:             server,
+		ingester:           ingester,
+		planCleaners:       planCleaners(redis, cfg.PlanRetention, cfg.PlanCleanupInterval),
+		lifecycleCleaner:   &redisstreams.StreamCleaner{Client: redis, Stream: redisstreams.LifecycleStream, Retention: redisstreams.LifecycleRetention, Interval: redisstreams.LifecycleCleanupInterval},
+		lifecyclePublisher: redisstreams.LifecyclePublisher{Client: redis},
+		dispatcher:         dispatcherService,
+		planConsumer: &redisstreams.PlanConsumer{
+			Client:   redis,
+			Streams:  redisstreams.NotificationStreams(sharedproviders.ActiveIDs()),
+			Group:    redisstreams.NotificationGroup,
+			Consumer: "core-" + coreID,
+			Workers:  cfg.DispatcherWorkers,
+			OnConsume: func(_ context.Context, plan models.ExecutionPlan) {
+				processMetrics.StreamConsumed(string(plan.Target.Provider))
+				log.Info("execution plan received",
+					logger.String("message_id", plan.MessageID),
+					logger.String("transport_message_id", plan.TransportMessageID),
+					logger.String("target", plan.Target.Name),
+					logger.String("provider", string(plan.Target.Provider)))
+			},
+			OnAck: func(_ context.Context, plan models.ExecutionPlan) {
+				processMetrics.StreamAcked(string(plan.Target.Provider))
+				log.Info("execution plan acknowledged",
+					logger.String("message_id", plan.MessageID),
+					logger.String("transport_message_id", plan.TransportMessageID),
+					logger.String("target", plan.Target.Name),
+					logger.String("provider", string(plan.Target.Provider)))
+			},
+		},
+		metrics:         processMetrics,
+		templateCatalog: catalog,
+		coreID:          coreID,
 	}, nil
+}
+
+func planCleaners(client *redis.Client, retention, interval time.Duration) []*redisstreams.StreamCleaner {
+	providers := sharedproviders.ActiveIDs()
+	cleaners := make([]*redisstreams.StreamCleaner, 0, len(providers))
+	for _, provider := range providers {
+		cleaners = append(cleaners, &redisstreams.StreamCleaner{
+			Client:    client,
+			Stream:    redisstreams.NotificationStream(provider),
+			Retention: retention,
+			Interval:  interval,
+		})
+	}
+	return cleaners
 }
 
 func resolveCoreID() string {

@@ -7,7 +7,6 @@ import (
 	"github.com/navire-dev/navire/core/internal/api/features/events"
 	"github.com/navire-dev/navire/core/internal/api/features/ops/healthz"
 	"github.com/navire-dev/navire/core/internal/api/features/ops/readyz"
-	registerdispatcher "github.com/navire-dev/navire/core/internal/api/features/register_dispatcher"
 )
 
 // RegisterRoutes explicitly assembles the API surface.
@@ -19,5 +18,4 @@ func RegisterRoutes(r chi.Router, d deps.Deps, eventMiddleware ...Middleware) {
 	})
 	Register(r, d, healthz.Registrar())
 	Register(r, d, readyz.Registrar())
-	Register(r, d, registerdispatcher.Registrar())
 }

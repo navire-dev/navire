@@ -42,7 +42,7 @@ The runtime uses Redis or Valkey Streams for execution plans, lifecycle events, 
 Core uses separate keys for protected runtime data:
 
 - `NAVIRE_SECRETS_ENCRYPTION_KEY` protects configured provider secrets
-- `NAVIRE_DISPATCH_PLAN_KEY` protects execution-plan data exchanged with Dispatchers
+- `NAVIRE_EXECUTION_PLAN_KEY` protects endpoint URLs carried in execution plans
 - `NAVIRE_DSPC_REGISTRATION_SECRET` authenticates Dispatcher registration
 
 These values must be generated independently, stored outside the repository, and rotated according to the deployment's operational policy.

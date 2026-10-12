@@ -7,14 +7,28 @@ import (
 	"time"
 
 	"github.com/navire-dev/navire/shared/models"
+	sharedproviders "github.com/navire-dev/navire/shared/providers"
 	sharedtransport "github.com/navire-dev/navire/shared/transport"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	NotificationStream = "navire:notifications"
-	NotificationGroup  = "navire-dispatchers"
+	NotificationStreamPrefix = "navire:plans:"
+	NotificationGroup        = "navire-dispatchers"
+	LegacyNotificationStream = "navire:notifications"
 )
+
+func NotificationStream(provider sharedproviders.ID) string {
+	return NotificationStreamPrefix + string(provider)
+}
+
+func NotificationStreams(providers []sharedproviders.ID) []string {
+	streams := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		streams = append(streams, NotificationStream(provider))
+	}
+	return streams
+}
 
 type Publisher struct {
 	Client *redis.Client
@@ -40,9 +54,6 @@ func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan
 	if len(plans) == 0 {
 		return nil, fmt.Errorf("at least one execution plan is required")
 	}
-	if p.Stream == "" {
-		p.Stream = NotificationStream
-	}
 	payloads := make([][]byte, len(plans))
 	for i, plan := range plans {
 		payload, err := json.Marshal(plan)
@@ -55,7 +66,7 @@ func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan
 	_, err := p.Client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		for i, payload := range payloads {
 			commands[i] = pipe.XAdd(ctx, &redis.XAddArgs{
-				Stream: p.Stream,
+				Stream: planStream(p.Stream, plans[i]),
 				Values: map[string]any{"payload": payload},
 			})
 		}
@@ -75,6 +86,13 @@ func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan
 	return ids, nil
 }
 
+func planStream(override string, plan models.ExecutionPlan) string {
+	if override != "" {
+		return override
+	}
+	return NotificationStream(plan.Target.Provider)
+}
+
 type Handler func(context.Context, models.ExecutionPlan) error
 
 type Consumer struct {
@@ -92,7 +110,7 @@ func (c Consumer) Lag(ctx context.Context) (int64, error) {
 	}
 	stream := c.Stream
 	if stream == "" {
-		stream = NotificationStream
+		stream = LegacyNotificationStream
 	}
 	group := c.Group
 	if group == "" {
@@ -115,7 +133,7 @@ func (c Consumer) Run(ctx context.Context, handler Handler) error {
 		return fmt.Errorf("consumer handler is required")
 	}
 	if c.Stream == "" {
-		c.Stream = NotificationStream
+		c.Stream = LegacyNotificationStream
 	}
 	if c.Group == "" {
 		c.Group = NotificationGroup

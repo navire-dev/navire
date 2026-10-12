@@ -26,8 +26,7 @@ type Deps struct {
 	TrustProxy           bool             // true if running behind a trusted reverse proxy (e.g., cloudflared)
 	Redis                *redis.Client
 	SecretsEncryptionKey []byte
-	DispatchPlanKey      []byte
-	RegistrationSecret   []byte
+	ExecutionPlanKey     []byte
 	Publisher            transport.ExecutionPlanPublisher
 	EndpointStore        ingest.EndpointStore
 	TemplatesDir         string
