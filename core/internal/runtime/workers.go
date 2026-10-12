@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
+	"github.com/navire-dev/navire/core/internal/dispatcher/sender"
 	"github.com/navire-dev/navire/shared/logger"
 	"github.com/navire-dev/navire/shared/models"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
@@ -53,11 +56,29 @@ func (a *App) consumePlans(ctx context.Context) error {
 		if err := a.dispatcher.Dispatch(ctx, plan); err != nil {
 			a.metrics.DeliveryAttempt(string(plan.Target.Provider), "failure")
 			a.metrics.DeliveryDuration(string(plan.Target.Provider), time.Since(started))
-			a.logger.Error("delivery failed",
+			fields := []zap.Field{
 				logger.String("message_id", plan.MessageID),
 				logger.String("target", plan.Target.Name),
 				logger.String("provider", string(plan.Target.Provider)),
-				logger.Error(err))
+				logger.Error(err),
+			}
+			var deliveryErr *sender.DeliveryError
+			if errors.As(err, &deliveryErr) {
+				if deliveryErr.StatusCode != 0 {
+					fields = append(fields,
+						logger.Int("status_code", deliveryErr.StatusCode),
+						logger.String("status", deliveryErr.Status),
+					)
+				}
+				if deliveryErr.HasRetryAfter {
+					fields = append(fields, logger.Duration("retry_after", deliveryErr.RetryAfter))
+				}
+				fields = append(fields,
+					logger.Int("attempts", deliveryErr.Attempts),
+					logger.Int("max_attempts", deliveryErr.MaxAttempts),
+				)
+			}
+			a.logger.Error("delivery failed", fields...)
 			return nil
 		}
 		a.metrics.DeliveryAttempt(string(plan.Target.Provider), "success")
