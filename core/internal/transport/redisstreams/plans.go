@@ -12,6 +12,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	pendingPlanMinIdle = 30 * time.Second
+	pendingPlanBatch   = 100
+)
+
 // PlanConsumer reads provider-partitioned execution plans and processes them
 // with a bounded pool of sequential workers.
 type PlanConsumer struct {
@@ -52,8 +57,21 @@ func (c PlanConsumer) Run(ctx context.Context, handler Handler) error {
 	defer cancel()
 	jobs := make(chan planMessage, config.workers)
 	workerErrors := make(chan error, 1)
+	pending, err := recoverPendingPlans(workerCtx, c.Client, config.streams, config.group, c.Consumer)
+	if err != nil {
+		return err
+	}
 	var workersDone sync.WaitGroup
 	c.startWorkers(workerCtx, cancel, jobs, workerErrors, &workersDone, config.group, handler)
+	for _, job := range pending {
+		select {
+		case jobs <- job:
+		case <-workerCtx.Done():
+			close(jobs)
+			workersDone.Wait()
+			return planConsumerResult(ctx, workerCtx.Err(), workerErrors)
+		}
+	}
 
 	readerErr := readPlans(workerCtx, c.Client, config.streams, config.group, c.Consumer, config.block, jobs)
 	cancel()
@@ -61,6 +79,34 @@ func (c PlanConsumer) Run(ctx context.Context, handler Handler) error {
 	workersDone.Wait()
 
 	return planConsumerResult(ctx, readerErr, workerErrors)
+}
+
+func recoverPendingPlans(ctx context.Context, client *redis.Client, streams []string, group, consumer string) ([]planMessage, error) {
+	pending := make([]planMessage, 0)
+	for _, stream := range streams {
+		start := "0-0"
+		for {
+			messages, nextStart, err := client.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+				Stream:   stream,
+				Group:    group,
+				Consumer: consumer,
+				MinIdle:  pendingPlanMinIdle,
+				Start:    start,
+				Count:    pendingPlanBatch,
+			}).Result()
+			if err != nil {
+				return nil, fmt.Errorf("recover pending execution plans from %s: %w", stream, err)
+			}
+			for _, message := range messages {
+				pending = append(pending, planMessage{stream: stream, message: message})
+			}
+			if nextStart == "0-0" {
+				break
+			}
+			start = nextStart
+		}
+	}
+	return pending, nil
 }
 
 func (c PlanConsumer) prepare(ctx context.Context) (planConsumerConfig, error) {
