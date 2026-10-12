@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/navire-dev/navire/shared/crypto"
+	"github.com/navire-dev/navire/core/internal/crypto"
 	"github.com/navire-dev/navire/shared/logger"
 	"github.com/navire-dev/navire/shared/models"
 	"github.com/redis/go-redis/v9"

@@ -77,10 +77,6 @@ func (l *Logger) Debug(message string, args ...any) {
 	}
 }
 
-func (l *Logger) Shared() sharedlogger.Logger {
-	return l.shared
-}
-
 func (l *Logger) enabled(level string) bool {
 	weight := map[string]int{"debug": 0, "info": 1, "warn": 2, "error": 3}
 	return weight[level] >= weight[l.level]

@@ -14,10 +14,10 @@ import (
 
 	"go.uber.org/zap"
 
+	sharedcrypto "github.com/navire-dev/navire/core/internal/crypto"
 	messageRender "github.com/navire-dev/navire/core/internal/dispatcher/render"
 	"github.com/navire-dev/navire/core/internal/dispatcher/sinks"
 	"github.com/navire-dev/navire/core/internal/dispatcher/sinks/contract"
-	sharedcrypto "github.com/navire-dev/navire/shared/crypto"
 	"github.com/navire-dev/navire/shared/logger"
 	"github.com/navire-dev/navire/shared/models"
 	sharedproviders "github.com/navire-dev/navire/shared/providers"
@@ -210,7 +210,7 @@ func (s Service) sendAttempt(ctx context.Context, prepared contract.PreparedRequ
 	if err != nil {
 		return attemptResult{err: sanitizeHTTPError(err)}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
 		return attemptResult{}
 	}

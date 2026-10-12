@@ -7,9 +7,9 @@ import (
 	"github.com/navire-dev/navire/core/internal/ingest"
 	coremetrics "github.com/navire-dev/navire/core/internal/metrics"
 	"github.com/navire-dev/navire/core/internal/provider"
+	"github.com/navire-dev/navire/core/internal/transport"
 	"github.com/navire-dev/navire/shared/logger"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
-	"github.com/navire-dev/navire/shared/transport"
 	"github.com/redis/go-redis/v9"
 )
 

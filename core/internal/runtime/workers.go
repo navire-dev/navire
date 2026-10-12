@@ -10,10 +10,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/navire-dev/navire/core/internal/dispatcher/sender"
+	"github.com/navire-dev/navire/core/internal/transport/redisstreams"
 	"github.com/navire-dev/navire/shared/logger"
 	"github.com/navire-dev/navire/shared/models"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
-	"github.com/navire-dev/navire/shared/transport/redisstreams"
 )
 
 func (a *App) watchConfig(ctx context.Context) error {

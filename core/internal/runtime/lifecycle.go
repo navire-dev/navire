@@ -7,13 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/navire-dev/navire/shared/lifecycle"
+	"github.com/navire-dev/navire/core/internal/lifecycle"
 	"github.com/navire-dev/navire/shared/logger"
-	sharedruntime "github.com/navire-dev/navire/shared/runtime"
 )
 
 func (a *App) Run() error {
-	ctx, stop := sharedruntime.SignalContext()
+	ctx, stop := SignalContext()
 	defer stop()
 	return a.RunContext(ctx)
 }

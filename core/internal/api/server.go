@@ -12,10 +12,10 @@ import (
 	"github.com/navire-dev/navire/core/internal/api/deps"
 	opsmetrics "github.com/navire-dev/navire/core/internal/api/features/ops/metrics"
 	"github.com/navire-dev/navire/core/internal/api/mw/global"
+	"github.com/navire-dev/navire/core/internal/clientip"
 	"github.com/navire-dev/navire/core/internal/config"
 
 	"github.com/navire-dev/navire/core/internal/api/router"
-	"github.com/navire-dev/navire/core/internal/utils"
 	"github.com/navire-dev/navire/shared/logger"
 )
 
@@ -32,7 +32,7 @@ func New(cfg *config.Config, log logger.Logger, d deps.Deps) *Server {
 	// --- Global middlewares (safe defaults)
 	r.Use(middleware.GetHead)
 	r.Use(middleware.RequestID) // Adds X-Request-ID / ctx key
-	trustedProxies := utils.NewIPMatcher(cfg.AllowedProxies)
+	trustedProxies := clientip.NewIPMatcher(cfg.AllowedProxies)
 	r.Use(global.Log(log, cfg.TrustProxy, trustedProxies))
 	r.Use(global.CORS()) // Optional: tune for prod
 	r.Use(global.AllowOnlyCIDRS(cfg.AllowedCIDRS, cfg.TrustProxy, trustedProxies))

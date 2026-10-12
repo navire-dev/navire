@@ -1,4 +1,4 @@
-package utils
+package clientip
 
 import (
 	"net/http"

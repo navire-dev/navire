@@ -10,9 +10,9 @@ import (
 
 	apierrors "github.com/navire-dev/navire/core/internal/api/apperrors"
 	"github.com/navire-dev/navire/core/internal/api/deps"
+	"github.com/navire-dev/navire/core/internal/transport"
 	"github.com/navire-dev/navire/shared/models"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
-	"github.com/navire-dev/navire/shared/transport"
 )
 
 type publisherStub struct{}

@@ -8,13 +8,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 
-	"github.com/navire-dev/navire/core/internal/utils"
+	"github.com/navire-dev/navire/core/internal/clientip"
 	"github.com/navire-dev/navire/shared/logger"
 )
 
 // Log writes structured access logs using a single source of truth for client IP.
 // trustProxy should be true when the app runs behind a trusted proxy/tunnel.
-func Log(log logger.Logger, trustProxy bool, trustedProxies *utils.IPMatcher) func(http.Handler) http.Handler {
+func Log(log logger.Logger, trustProxy bool, trustedProxies *clientip.IPMatcher) func(http.Handler) http.Handler {
 	// Low-noise endpoints to skip (tweak as you like).
 	skip := map[string]struct{}{
 		"/healthz": {},
@@ -34,7 +34,7 @@ func Log(log logger.Logger, trustProxy bool, trustedProxies *utils.IPMatcher) fu
 			next.ServeHTTP(ww, r)
 
 			// Proxy-aware client IP
-			ip := utils.ClientIP(r, trustProxy, trustedProxies)
+			ip := clientip.ClientIP(r, trustProxy, trustedProxies)
 
 			// Route pattern (e.g. /users/{id}) for low-cardinality logs
 			route := ""

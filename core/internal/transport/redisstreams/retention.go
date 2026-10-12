@@ -82,22 +82,3 @@ func (c StreamCleaner) trim(ctx context.Context) (int64, error) {
 	cutoff := time.Now().UTC().Add(-c.Retention)
 	return TrimBefore(ctx, c.Client, c.Stream, cutoff)
 }
-
-func acknowledgeAndDelete(ctx context.Context, client *redis.Client, stream, group, messageID string) error {
-	var ack *redis.IntCmd
-	var deleted *redis.IntCmd
-	if _, err := client.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-		ack = pipe.XAck(ctx, stream, group, messageID)
-		deleted = pipe.XDel(ctx, stream, messageID)
-		return nil
-	}); err != nil {
-		return fmt.Errorf("ack and delete stream entry %s: %w", messageID, err)
-	}
-	if err := ack.Err(); err != nil {
-		return fmt.Errorf("ack stream entry %s: %w", messageID, err)
-	}
-	if err := deleted.Err(); err != nil {
-		return fmt.Errorf("delete stream entry %s: %w", messageID, err)
-	}
-	return nil
-}

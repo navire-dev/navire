@@ -55,10 +55,6 @@ func (c Config) TemplatesDir(root string) string {
 	return filepath.Join(root, c.TemplatesPath)
 }
 
-func (c Config) ProvidersDir(root string) string {
-	return filepath.Join(root, c.ProvidersPath)
-}
-
 func validateRelativePath(label, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s path is required", label)

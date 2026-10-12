@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	redisClient "github.com/navire-dev/navire/core/internal/redis"
 	sharedconfig "github.com/navire-dev/navire/shared/config"
-	redisClient "github.com/navire-dev/navire/shared/redis"
 )
 
 const ( // mounted volume in the container

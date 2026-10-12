@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/navire-dev/navire/core/internal/utils"
+	"github.com/navire-dev/navire/core/internal/clientip"
 )
 
 type RateLimitConfig struct {
@@ -17,7 +17,7 @@ type RateLimitConfig struct {
 	SweepInterval     time.Duration
 	IdleTTL           time.Duration
 	TrustProxy        bool // NEW: resolve IP from proxy headers when true
-	TrustedProxies    *utils.IPMatcher
+	TrustedProxies    *clientip.IPMatcher
 }
 
 type bucket struct {
@@ -134,7 +134,7 @@ func RateLimit(cfg RateLimitConfig) func(http.Handler) http.Handler {
 			now := time.Now()
 			l.sweepMaybe(now)
 
-			key := utils.ClientIP(r, l.cfg.TrustProxy, l.cfg.TrustedProxies)
+			key := clientip.ClientIP(r, l.cfg.TrustProxy, l.cfg.TrustedProxies)
 
 			ok, remaining, retry := l.allow(key, now)
 			if !ok {

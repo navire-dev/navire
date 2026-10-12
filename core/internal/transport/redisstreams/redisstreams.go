@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/navire-dev/navire/core/internal/transport"
 	"github.com/navire-dev/navire/shared/models"
 	sharedproviders "github.com/navire-dev/navire/shared/providers"
-	sharedtransport "github.com/navire-dev/navire/shared/transport"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -35,7 +35,7 @@ type Publisher struct {
 	Stream string
 }
 
-func (p Publisher) Publish(ctx context.Context, plan models.ExecutionPlan) (sharedtransport.MessageID, error) {
+func (p Publisher) Publish(ctx context.Context, plan models.ExecutionPlan) (transport.MessageID, error) {
 	ids, err := p.PublishMany(ctx, []models.ExecutionPlan{plan})
 	if err != nil {
 		return "", err
@@ -47,7 +47,7 @@ func (p Publisher) Publish(ctx context.Context, plan models.ExecutionPlan) (shar
 }
 
 // PublishMany atomically publishes one execution plan per delivery target.
-func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan) ([]sharedtransport.MessageID, error) {
+func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan) ([]transport.MessageID, error) {
 	if p.Client == nil {
 		return nil, fmt.Errorf("redis client is required")
 	}
@@ -75,13 +75,13 @@ func (p Publisher) PublishMany(ctx context.Context, plans []models.ExecutionPlan
 	if err != nil {
 		return nil, fmt.Errorf("publish execution plans: %w", err)
 	}
-	ids := make([]sharedtransport.MessageID, len(commands))
+	ids := make([]transport.MessageID, len(commands))
 	for i, command := range commands {
 		id, err := command.Result()
 		if err != nil {
 			return nil, fmt.Errorf("read published execution plan %d ID: %w", i, err)
 		}
-		ids[i] = sharedtransport.MessageID(id)
+		ids[i] = transport.MessageID(id)
 	}
 	return ids, nil
 }

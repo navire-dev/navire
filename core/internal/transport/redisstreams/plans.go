@@ -30,69 +30,108 @@ type planMessage struct {
 	message redis.XMessage
 }
 
+type planConsumerConfig struct {
+	group   string
+	block   time.Duration
+	workers int
+	streams []string
+}
+
 // Run consumes plans until the context is canceled or a worker encounters a
 // transport or handler error. The handler completes before the plan is ACKed.
 func (c PlanConsumer) Run(ctx context.Context, handler Handler) error {
 	if handler == nil {
 		return fmt.Errorf("plan consumer handler is required")
 	}
-	if err := c.validate(); err != nil {
+	config, err := c.prepare(ctx)
+	if err != nil {
 		return err
-	}
-	group := c.Group
-	if group == "" {
-		group = NotificationGroup
-	}
-	block := c.Block
-	if block <= 0 {
-		block = 5 * time.Second
-	}
-	workers := c.Workers
-	if workers <= 0 {
-		workers = 1
-	}
-	streams := uniqueStreams(c.Streams)
-	for _, stream := range streams {
-		if err := ensureConsumerGroup(ctx, c.Client, stream, group, "0"); err != nil {
-			return err
-		}
 	}
 
 	workerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	jobs := make(chan planMessage, workers)
+	jobs := make(chan planMessage, config.workers)
 	workerErrors := make(chan error, 1)
 	var workersDone sync.WaitGroup
-	workersDone.Add(workers)
-	for range workers {
-		go func() {
-			defer workersDone.Done()
-			for {
-				select {
-				case <-workerCtx.Done():
-					return
-				case job, ok := <-jobs:
-					if !ok {
-						return
-					}
-					if err := handlePlanMessage(workerCtx, c.Client, group, job, handler, c.OnConsume, c.OnAck); err != nil {
-						select {
-						case workerErrors <- err:
-						default:
-						}
-						cancel()
-						return
-					}
-				}
-			}
-		}()
-	}
+	c.startWorkers(workerCtx, cancel, jobs, workerErrors, &workersDone, config.group, handler)
 
-	readerErr := readPlans(workerCtx, c.Client, streams, group, c.Consumer, block, jobs)
+	readerErr := readPlans(workerCtx, c.Client, config.streams, config.group, c.Consumer, config.block, jobs)
 	cancel()
 	close(jobs)
 	workersDone.Wait()
 
+	return planConsumerResult(ctx, readerErr, workerErrors)
+}
+
+func (c PlanConsumer) prepare(ctx context.Context) (planConsumerConfig, error) {
+	if err := c.validate(); err != nil {
+		return planConsumerConfig{}, err
+	}
+	config := planConsumerConfig{
+		group:   c.Group,
+		block:   c.Block,
+		workers: c.Workers,
+		streams: uniqueStreams(c.Streams),
+	}
+	if config.group == "" {
+		config.group = NotificationGroup
+	}
+	if config.block <= 0 {
+		config.block = 5 * time.Second
+	}
+	if config.workers <= 0 {
+		config.workers = 1
+	}
+	for _, stream := range config.streams {
+		if err := ensureConsumerGroup(ctx, c.Client, stream, config.group, "0"); err != nil {
+			return planConsumerConfig{}, err
+		}
+	}
+	return config, nil
+}
+
+func (c PlanConsumer) startWorkers(ctx context.Context, cancel context.CancelFunc, jobs <-chan planMessage, workerErrors chan<- error, workersDone *sync.WaitGroup, group string, handler Handler) {
+	workersDone.Add(c.workerCount())
+	for range c.workerCount() {
+		go func() {
+			defer workersDone.Done()
+			for {
+				if !c.runWorker(ctx, cancel, jobs, workerErrors, group, handler) {
+					return
+				}
+			}
+		}()
+	}
+}
+
+func (c PlanConsumer) runWorker(ctx context.Context, cancel context.CancelFunc, jobs <-chan planMessage, workerErrors chan<- error, group string, handler Handler) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case job, ok := <-jobs:
+		if !ok {
+			return false
+		}
+		if err := handlePlanMessage(ctx, c.Client, group, job, handler, c.OnConsume, c.OnAck); err != nil {
+			select {
+			case workerErrors <- err:
+			default:
+			}
+			cancel()
+			return false
+		}
+		return true
+	}
+}
+
+func (c PlanConsumer) workerCount() int {
+	if c.Workers <= 0 {
+		return 1
+	}
+	return c.Workers
+}
+
+func planConsumerResult(ctx context.Context, readerErr error, workerErrors <-chan error) error {
 	select {
 	case err := <-workerErrors:
 		return err

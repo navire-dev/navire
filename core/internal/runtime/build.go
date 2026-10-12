@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/navire-dev/navire/core/internal/config"
+	sharedcrypto "github.com/navire-dev/navire/core/internal/crypto"
 	"github.com/navire-dev/navire/core/internal/ingest"
-	"github.com/navire-dev/navire/core/internal/utils"
-	sharedcrypto "github.com/navire-dev/navire/shared/crypto"
+	redisClient "github.com/navire-dev/navire/core/internal/redis"
 	"github.com/navire-dev/navire/shared/logger"
-	redisClient "github.com/navire-dev/navire/shared/redis"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
 	"github.com/redis/go-redis/v9"
 )
@@ -35,7 +34,7 @@ func loadKeys(cfg *config.Config) (runtimeKeys, error) {
 }
 
 func validateSecretsKey(cfg *config.Config) ([]byte, error) {
-	key, err := utils.ValidateSecretsEncryptionKey(cfg.SecretsEncryptionKey)
+	key, err := sharedcrypto.ValidateSecretsEncryptionKey(cfg.SecretsEncryptionKey)
 	if err != nil {
 		return nil, err
 	}

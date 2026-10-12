@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	sharedcrypto "github.com/navire-dev/navire/core/internal/crypto"
 	"github.com/navire-dev/navire/core/internal/ingest"
-	sharedcrypto "github.com/navire-dev/navire/shared/crypto"
 	"github.com/navire-dev/navire/shared/models"
 )
 

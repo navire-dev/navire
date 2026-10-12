@@ -17,11 +17,11 @@ import (
 	coremetrics "github.com/navire-dev/navire/core/internal/metrics"
 	prommetrics "github.com/navire-dev/navire/core/internal/metrics/prometheus"
 	"github.com/navire-dev/navire/core/internal/provider"
+	"github.com/navire-dev/navire/core/internal/transport/redisstreams"
 	"github.com/navire-dev/navire/shared/logger"
 	"github.com/navire-dev/navire/shared/models"
 	sharedproviders "github.com/navire-dev/navire/shared/providers"
 	templateCatalog "github.com/navire-dev/navire/shared/template/catalog"
-	"github.com/navire-dev/navire/shared/transport/redisstreams"
 	"github.com/navire-dev/navire/shared/version"
 	"github.com/redis/go-redis/v9"
 )
@@ -61,35 +61,35 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	coreID := resolveCoreID()
 
-	redis, err := connectRedis(cfg, log)
+	redisClient, err := connectRedis(cfg, log)
 	if err != nil {
 		return nil, err
 	}
-	ingester, err := loadIngester(cfg, redis, keys.secretsEncryptionKey, log)
+	ingester, err := loadIngester(cfg, redisClient, keys.secretsEncryptionKey, log)
 	if err != nil {
-		_ = redis.Close()
+		_ = redisClient.Close()
 		return nil, err
 	}
 	catalog, err := loadTemplates(cfg, log)
 	if err != nil {
-		_ = redis.Close()
+		_ = redisClient.Close()
 		return nil, err
 	}
 
 	providerRegistry, err := provider.NewDefaultRegistry()
 	if err != nil {
-		_ = redis.Close()
+		_ = redisClient.Close()
 		return nil, fmt.Errorf("register Core providers: %w", err)
 	}
 	sinkRegistry, err := sinks.NewDefault()
 	if err != nil {
-		_ = redis.Close()
+		_ = redisClient.Close()
 		return nil, fmt.Errorf("register dispatcher providers: %w", err)
 	}
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	dispatcherService, err := coredispatcher.New(httpClient, keys.executionPlanKey, sinkRegistry, log)
 	if err != nil {
-		_ = redis.Close()
+		_ = redisClient.Close()
 		return nil, fmt.Errorf("build dispatcher: %w", err)
 	}
 	processMetrics := prommetrics.New(started)
@@ -105,11 +105,11 @@ func New(cfg *config.Config) (*App, error) {
 		AllowedCIDRS:         cfg.AllowedCIDRS,
 		AllowedProxies:       cfg.AllowedProxies,
 		TrustProxy:           cfg.TrustProxy,
-		Redis:                redis,
+		Redis:                redisClient,
 		SecretsEncryptionKey: keys.secretsEncryptionKey,
 		ExecutionPlanKey:     keys.executionPlanKey,
-		Publisher:            &redisstreams.Publisher{Client: redis},
-		EndpointStore:        ingest.RedisEndpointStore{Client: redis},
+		Publisher:            &redisstreams.Publisher{Client: redisClient},
+		EndpointStore:        ingest.RedisEndpointStore{Client: redisClient},
 		TemplatesDir:         cfg.TemplatesDir,
 		TemplateCatalog:      catalog,
 		HTTPClient:           httpClient,
@@ -119,16 +119,21 @@ func New(cfg *config.Config) (*App, error) {
 	})
 
 	return &App{
-		cfg:                cfg,
-		logger:             log,
-		server:             server,
-		ingester:           ingester,
-		planCleaners:       planCleaners(redis, cfg.PlanRetention, cfg.PlanCleanupInterval),
-		lifecycleCleaner:   &redisstreams.StreamCleaner{Client: redis, Stream: redisstreams.LifecycleStream, Retention: redisstreams.LifecycleRetention, Interval: redisstreams.LifecycleCleanupInterval},
-		lifecyclePublisher: redisstreams.LifecyclePublisher{Client: redis},
+		cfg:          cfg,
+		logger:       log,
+		server:       server,
+		ingester:     ingester,
+		planCleaners: planCleaners(redisClient, cfg.PlanRetention, cfg.PlanCleanupInterval),
+		lifecycleCleaner: &redisstreams.StreamCleaner{
+			Client:    redisClient,
+			Stream:    redisstreams.LifecycleStream,
+			Retention: redisstreams.LifecycleRetention,
+			Interval:  redisstreams.LifecycleCleanupInterval,
+		},
+		lifecyclePublisher: redisstreams.LifecyclePublisher{Client: redisClient},
 		dispatcher:         dispatcherService,
 		planConsumer: &redisstreams.PlanConsumer{
-			Client:   redis,
+			Client:   redisClient,
 			Streams:  redisstreams.NotificationStreams(sharedproviders.ActiveIDs()),
 			Group:    redisstreams.NotificationGroup,
 			Consumer: "core-" + coreID,

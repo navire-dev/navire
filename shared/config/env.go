@@ -140,24 +140,6 @@ func NormalizeListenAddr(value string) string {
 	return value
 }
 
-func ValidateListenAddr(key, addr string) error {
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return fmt.Errorf("%s=%q must be a valid host:port: %w", key, addr, err)
-	}
-	if host == "" && port == "" {
-		return fmt.Errorf("%s must include a port", key)
-	}
-	parsed, err := strconv.Atoi(port)
-	if err != nil || parsed < 0 || parsed > 65535 {
-		if err == nil {
-			err = fmt.Errorf("port out of range")
-		}
-		return fmt.Errorf("%s=%q has an invalid port: %w", key, addr, err)
-	}
-	return nil
-}
-
 // RedisAddr joins a Redis host and port using net.JoinHostPort.
 func RedisAddr(host string, port int) string {
 	return net.JoinHostPort(strings.TrimSpace(host), strconv.Itoa(port))
