@@ -152,7 +152,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -232,7 +232,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -324,7 +324,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -347,15 +347,36 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "sum by (dispatcher) (navire_stream_consumer_lag{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"})",
+                        "expr": "sum by (provider) (navire_stream_messages_consumed_total{job=~\"$navire_job\", instance=~\"$navire_instance\"})",
                         "instant": true,
-                        "legendFormat": "Lag {{dispatcher}}",
+                        "legendFormat": "Consumed {{provider}}",
                         "range": false
                       },
                       "version": "v0"
                     },
-                    "refId": "A"
+                    "refId": "Consumed"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "$DS_PROMETHEUS"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (provider) (navire_stream_messages_acked_total{job=~\"$navire_job\", instance=~\"$navire_instance\"})",
+                        "instant": true,
+                        "legendFormat": "Acknowledged {{provider}}",
+                        "range": false
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "Acknowledged"
                   }
                 }
               ],
@@ -363,12 +384,12 @@
               "transformations": []
             }
           },
-          "description": "",
+          "description": "Current plan processing totals grouped by provider.",
           "id": 12,
           "links": [],
-          "title": "Runtime · DSPC stream lag",
+          "title": "Runtime · Plans by provider",
           "vizConfig": {
-            "group": "stat",
+            "group": "bargauge",
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
@@ -391,22 +412,30 @@
                 "overrides": []
               },
               "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
+                "displayMode": "gradient",
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "overflow": "ellipsis",
+                  "placement": "bottom",
+                  "showLegend": false
+                },
+                "maxVizHeight": 300,
+                "minVizHeight": 16,
+                "minVizWidth": 8,
+                "namePlacement": "auto",
                 "orientation": "auto",
-                "percentChangeColorMode": "standard",
                 "reduceOptions": {
                   "calcs": ["lastNotNull"],
                   "fields": "",
                   "values": false
                 },
-                "showPercentChange": false,
-                "textMode": "auto",
-                "wideLayout": true
+                "showUnfilled": true,
+                "sizing": "auto",
+                "valueMode": "color"
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -486,7 +515,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -567,9 +596,6 @@
               },
               "options": {
                 "cellHeight": "sm",
-                "footer": {
-                  "show": false
-                },
                 "showHeader": true,
                 "sortBy": [
                   {
@@ -579,7 +605,7 @@
                 ]
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -612,29 +638,6 @@
                     },
                     "refId": "A"
                   }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "$DS_PROMETHEUS"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "navire_dispatcher_up{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}",
-                        "instant": true,
-                        "legendFormat": "DSPC {{dispatcher}}",
-                        "range": false
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "B"
-                  }
                 }
               ],
               "queryOptions": {},
@@ -644,7 +647,7 @@
           "description": "",
           "id": 2,
           "links": [],
-          "title": "Overview · Core and DSPC health",
+          "title": "Overview · Core health",
           "vizConfig": {
             "group": "stat",
             "kind": "VizConfig",
@@ -706,7 +709,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -729,7 +732,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "increase(navire_events_received_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range])",
+                        "expr": "sum(increase(navire_events_received_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]))",
                         "legendFormat": "Received",
                         "range": true
                       },
@@ -750,7 +753,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "increase(navire_events_accepted_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range])",
+                        "expr": "sum(increase(navire_events_accepted_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]))",
                         "legendFormat": "Accepted",
                         "range": true
                       },
@@ -771,7 +774,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "increase(navire_events_received_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]) - increase(navire_events_accepted_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range])",
+                        "expr": "sum(increase(navire_events_rejected_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]))",
                         "legendFormat": "Rejected",
                         "range": true
                       },
@@ -792,8 +795,8 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "increase(navire_events_published_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range])",
-                        "legendFormat": "Published",
+                        "expr": "sum(increase(navire_events_published_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]))",
+                        "legendFormat": "Events published",
                         "range": true
                       },
                       "version": "v0"
@@ -813,7 +816,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "increase(navire_events_publish_errors_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range])",
+                        "expr": "sum(increase(navire_events_publish_errors_total{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}[$__range]))",
                         "legendFormat": "Publish errors",
                         "range": true
                       },
@@ -870,7 +873,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -902,29 +905,6 @@
                       "version": "v0"
                     },
                     "refId": "A"
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "$DS_PROMETHEUS"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "navire_dispatcher_redis_connected{component=\"core\", job=~\"$navire_job\", instance=~\"$navire_instance\"}",
-                        "instant": true,
-                        "legendFormat": "DSPC Redis {{dispatcher}}",
-                        "range": false
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "B"
                   }
                 }
               ],
@@ -994,7 +974,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -1129,7 +1109,7 @@
                 }
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -1227,7 +1207,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -1251,7 +1231,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "increase(\r\n  navire_stream_messages_published_total{\r\n    job=~\"$navire_job\",\n    instance=~\"$navire_instance\"\r\n  }[$__range]\r\n)",
+                        "expr": "sum(navire_stream_messages_published_total{job=~\"$navire_job\", instance=~\"$navire_instance\"})",
                         "format": "time_series",
                         "instant": true,
                         "interval": "",
@@ -1276,7 +1256,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "increase(\r\nnavire_stream_messages_consumed_total{\r\n    job=~\"$navire_job\",\n    instance=~\"$navire_instance\"\r\n}[$__range]\r\n)",
+                        "expr": "sum(navire_stream_messages_consumed_total{job=~\"$navire_job\", instance=~\"$navire_instance\"})",
                         "instant": true,
                         "legendFormat": "Consumed",
                         "range": false
@@ -1299,7 +1279,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "increase(\r\nnavire_stream_messages_acked_total{\r\n    job=~\"$navire_job\",\n    instance=~\"$navire_instance\"\r\n}[$__range]\r\n)",
+                        "expr": "sum(navire_stream_messages_acked_total{job=~\"$navire_job\", instance=~\"$navire_instance\"})",
                         "instant": true,
                         "legendFormat": "Acknowledged",
                         "range": false
@@ -1369,7 +1349,7 @@
                 "textMode": "auto"
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -1463,7 +1443,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       },
@@ -1553,7 +1533,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.1"
+            "version": "13.2.3"
           }
         }
       }
@@ -1773,11 +1753,11 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-12"
+                          "name": "panel-13"
                         },
                         "height": 7,
                         "width": 12,
-                        "x": 0,
+                        "x": 12,
                         "y": 8
                       }
                     },
@@ -1786,11 +1766,11 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-13"
+                          "name": "panel-12"
                         },
                         "height": 7,
                         "width": 12,
-                        "x": 12,
+                        "x": 0,
                         "y": 8
                       }
                     }
