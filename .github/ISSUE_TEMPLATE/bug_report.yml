@@ -32,7 +32,7 @@ body:
       description: Which part of Navire is affected?
       options:
         - Core
-        - DSPC
+        - Navire CLI
         - Configuration
         - Templates and routing
         - Provider integration

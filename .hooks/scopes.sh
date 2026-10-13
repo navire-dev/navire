@@ -6,7 +6,6 @@ all=false
 go=false
 deps=false
 core=false
-dspc=false
 cli=false
 
 while IFS= read -r path; do
@@ -30,9 +29,6 @@ while IFS= read -r path; do
     core/*|cmd/core/*)
       core=true
       ;;
-    dispatcher/*|cmd/dispatcher/*)
-      dspc=true
-      ;;
     navirectl/*|cmd/navirectl/*)
       cli=true
       ;;
@@ -46,7 +42,6 @@ if [ "$all" = true ]; then
   printf '%s\n' all
 else
   [ "$core" = true ] && printf '%s\n' core
-  [ "$dspc" = true ] && printf '%s\n' dspc
   [ "$cli" = true ] && printf '%s\n' cli
 fi
 

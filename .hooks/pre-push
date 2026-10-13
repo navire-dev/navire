@@ -36,7 +36,6 @@ if printf '%s\n' "$scopes" | grep -qx all; then
   targets="./..."
 else
   printf '%s\n' "$scopes" | grep -qx core && targets="$targets ./core/... ./cmd/core"
-  printf '%s\n' "$scopes" | grep -qx dspc && targets="$targets ./dispatcher/... ./cmd/dispatcher"
   printf '%s\n' "$scopes" | grep -qx cli && targets="$targets ./navirectl/... ./cmd/navirectl"
 fi
 

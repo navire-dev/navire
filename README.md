@@ -28,13 +28,13 @@ Navire is built around a small set of responsibilities:
 
 - **Producers** report operational events
 - **Core** validates events, resolves templates and targets, and publishes execution plans
-- **Redis or Valkey Streams** provide the initial pub/sub transport implementation for execution plans and lifecycle data
-- **Dispatchers** consume execution plans, translate them into the provider-specific request format, and deliver notifications independently of Core
+- **Redis or Valkey Streams** provide the initial pub/sub transport implementation for provider-partitioned execution plans and lifecycle data
+- **Core dispatcher workers** consume execution plans, translate them into provider-specific requests, and deliver notifications inside Core
 - **Providers** represent the external notification systems that receive those requests
 
-Provider-specific formatting is an implementation detail of the Dispatcher. Producers do not need to know whether a notification is eventually received by Gotify, NTFY, Slack, Discord, or another supported provider.
+Provider-specific formatting is an implementation detail of the Core dispatcher. Producers do not need to know whether a notification is eventually received by Gotify, NTFY, Slack, Discord, or another supported provider.
 
-This separation also allows multiple Dispatchers to operate independently and keeps the delivery path separate from the event-ingestion path.
+The dispatcher remains an explicit internal delivery boundary, while the current deployment keeps ingestion and delivery in one Core process. This preserves a simple operational model without coupling producers to provider-specific behavior.
 
 ## What Navire is for
 
@@ -60,7 +60,7 @@ The current development direction focuses on:
 - a secure single-user MVP
 - authenticated event ingestion
 - declarative templates and provider configuration
-- Core-to-Dispatcher execution plans
+- provider-partitioned execution plans and bounded Core dispatcher workers
 - provider-independent delivery
 - operational metrics and lifecycle reporting
 - a CLI for validating and managing declarative configuration, designed for interactive use and CI/CD automation, with a container image planned for pipeline execution
@@ -74,14 +74,14 @@ This README describes the long-term direction and the product model Navire is be
 Navire follows a few principles throughout its development:
 
 - event producers should not contain provider-specific delivery logic
-- Core decides what should happen, while Dispatchers perform delivery
+- Core decides what should happen, while its dispatcher workers perform delivery
 - provider-specific formatting and behavior stay behind explicit contracts
 - configuration and business rules should remain declarative where possible
 - transport backends should not redefine Navire's event and execution contracts
 - observability is part of the delivery design, not an afterthought
 - reliability guarantees must be explicit rather than implied by an HTTP response
 
-The project favors a small number of clearly separated components over a single service that owns ingestion, rendering, provider integration, and delivery retries all at once.
+The project favors clearly separated responsibilities inside a small number of deployable components. In Core, ingestion, rendering, provider integration, and delivery retries remain distinct units even though they currently run in one process.
 
 ## Roadmap
 

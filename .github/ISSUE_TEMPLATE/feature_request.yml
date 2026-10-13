@@ -40,7 +40,7 @@ body:
       options:
         - Configuration
         - Core
-        - DSPC
+        - Navire CLI
         - Provider integration
         - Transport
         - Administration API or CLI

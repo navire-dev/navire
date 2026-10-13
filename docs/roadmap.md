@@ -4,7 +4,7 @@ This roadmap describes the intended product evolution. It is informational, not 
 
 ## 0.0.1: Secure single-user MVP
 
-The first release establishes a usable and secure vertical slice around the existing Core, transport, Dispatcher, provider, and observability model.
+The first release establishes a usable and secure vertical slice around the existing Core, transport, internal dispatcher, provider, and observability model.
 
 The target includes:
 
@@ -34,7 +34,7 @@ It also extends `navirectl` with remote diff, CI-oriented JSON output, and a ded
 
 ## 0.0.4: Transport independence
 
-Redis or Valkey is the first transport implementation, not the final architectural boundary. This milestone adds further pub/sub transport adapters while preserving Navire's event, execution-plan, heartbeat, lifecycle, and reporting contracts.
+Redis or Valkey is the first transport implementation, not the final architectural boundary. This milestone adds further pub/sub transport adapters while preserving Navire's event, execution-plan, lifecycle, delivery-result, and message-identity contracts.
 
 ## 0.1: High availability and operational scale
 

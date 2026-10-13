@@ -21,6 +21,8 @@ dev/redis/config/valkey.conf
 .env
 .env.*
 !.env.example
+Makefile.*
+.local
 
 # Dependencies
 vendor/
