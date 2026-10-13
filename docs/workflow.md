@@ -108,7 +108,7 @@ The Core dispatcher consumes one execution plan and:
 5. returns the delivery result to the Core worker
 6. acknowledges the Redis or Valkey Stream entry after processing
 
-Each worker processes one plan at a time. The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`; a failed or slow provider plan does not stop other workers from processing other plans. Provider-specific rate limiting and recovery workflows are not implemented yet.
+Each worker processes one plan at a time. The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`; a failed or slow provider plan does not stop other workers from processing other plans. The sender honors a provider-supplied `Retry-After` delay when one is returned. Full provider-aware rate limiting, adaptive concurrency, and recovery workflows are not implemented yet.
 
 The current transport uses one consumer group, `navire-dispatchers`, across provider-partitioned streams such as `navire:plans:discord` and `navire:plans:slack`.
 

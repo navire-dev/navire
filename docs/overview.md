@@ -71,7 +71,7 @@ sender            performs HTTP delivery and retries
 ACK by Core       acknowledges the transport message
 ```
 
-The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`, which defaults to 20 and accepts values from 1 to 100. A failed delivery does not prevent other workers from processing other plans. Provider-specific adaptive rate limiting and recovery workflows are future work.
+The worker pool is bounded by `NAVIRE_DISPATCHER_WORKERS`, which defaults to 20 and accepts values from 1 to 100. A failed delivery does not prevent other workers from processing other plans. The sender honors a provider-supplied `Retry-After` delay when one is returned. Full provider-aware rate limiting, adaptive concurrency, and recovery workflows are future work.
 
 ## Transport
 

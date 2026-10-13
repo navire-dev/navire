@@ -34,7 +34,7 @@ It also extends `navirectl` with remote diff, CI-oriented JSON output, and a ded
 
 ## 0.0.4: Transport independence
 
-Redis or Valkey is the first transport implementation, not the final architectural boundary. This milestone adds further pub/sub transport adapters while preserving Navire's event, execution-plan, heartbeat, lifecycle, and reporting contracts.
+Redis or Valkey is the first transport implementation, not the final architectural boundary. This milestone adds further pub/sub transport adapters while preserving Navire's event, execution-plan, lifecycle, delivery-result, and message-identity contracts.
 
 ## 0.1: High availability and operational scale
 
